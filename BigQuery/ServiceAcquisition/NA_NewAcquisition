@@ -1,0 +1,57 @@
+with base_registereduser as (
+  SELECT
+    Brandid,
+    Status AS Subscriptionstatus,
+    Producttype,
+    Countrycode,
+    Regioncode,
+    Subscriptionid,
+    Daydate,
+    PARSE_DATE('%Y%m%d',daydate) AS Date,
+    --Subscriptionperiod,
+    --Saleschannel,
+    Userid
+from `pj-poc-data.kaltura_dwh.fact_registereduser`
+  WHERE brandid = '89cfc816-c708-11ec-ae61-434f66a2f420' -- include right brandid
+    AND type = 'Subscription' 
+    and activationdaydate = daydate
+  --  and daydate = '20220802' -- remove me
+ AND PARSE_DATE('%Y%m%d',daydate) between date_add( CURRENT_DATE, interval -2 year ) and CURRENT_DATE
+),
+tsubscriptions as (
+  SELECT
+    Brandid,
+    Subscriptionstatus,
+    Producttype,
+    Countrycode,
+    Regioncode,
+    Subscriptionid,
+    Daydate,
+    "Date",
+    --Subscriptionperiod,
+    --Saleschannel,
+	'subscriptions' as  Dimension, 
+	count(userid) as Total
+from base_registereduser 
+group by 1,2,3,4,5,6,7,8,9),
+tsubscribers as (
+  SELECT
+    Brandid,
+    Subscriptionstatus,
+    Producttype,
+    Countrycode,
+    Regioncode,
+    'NA' as Subscriptionid,
+    Daydate,
+    "Date",
+    --Subscriptionperiod,
+    --Saleschannel,
+	'subscribers' as  Dimension, 
+	count(distinct userid) as Total
+from base_registereduser
+group by 1,2,3,4,5,6,7,8,9),
+tfinal as (
+select * from tsubscriptions
+union all
+select * from tsubscribers)
+select *  from tfinal
