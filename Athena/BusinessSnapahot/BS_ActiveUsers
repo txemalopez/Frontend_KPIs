@@ -1,0 +1,205 @@
+with basePlaybackactivity as (
+	select *,
+    (select cast(date_parse(max(daydate), '%Y%m%d') as date) 
+	from pro.fact_playbackactivity     
+        where brandid = '89cfc816-c708-11ec-ae61-434f66a2f420'
+	)  as "currenttimestamp", /* Get last daydate with data */
+    date_format(date_add('day',
+    1-day_of_week(cast(date_parse(daydate , '%Y%m%d') as timestamp)),
+    cast(date_parse(daydate , '%Y%m%d') as timestamp)),'%Y%m%d')  as "weekdate"
+	from pro.fact_playbackactivity
+	where userid != 'NA'
+        and brandid = '89cfc816-c708-11ec-ae61-434f66a2f420'
+	and cast(date_parse(daydate, '%Y%m%d') as date) >= 
+	date_add('month', -6, 
+	    (select cast(date_parse(max(daydate), '%Y%m%d') as date) /**/
+	    from pro.fact_playbackactivity                   /* Get last daydate with data */
+            where brandid = '89cfc816-c708-11ec-ae61-434f66a2f420'
+		)
+		)
+),
+agg_per_day_base as (
+	select 
+	brandid,
+	currenttimestamp,
+	daydate, 
+	monthdate, 
+	weekdate,
+	daydate as "rangedaydate", 
+	producttype,
+	subscriptionid,
+	countrycode,
+	regioncode, 
+	userid 
+	from basePlaybackactivity 
+	group by 1,2,3,4,5,6,7,8,9,10,11
+), 
+agg_per_day as (
+	select 
+	*
+	from agg_per_day_base 
+	where cast(date_parse(daydate, '%Y%m%d') as date) > date_add('day', -6, cast( date_parse(date_format(currenttimestamp, '%Y%m%d'), '%Y%m%d') as date))
+),
+agg_per_week as (
+	select 
+	*
+	from agg_per_day_base 
+	where cast(date_parse(weekdate, '%Y%m%d') as date) between 
+	date_add('week', -5, case when day_of_week(currenttimestamp) = 7 then date_add('day',-6, currenttimestamp) 
+	else date_add('day',-6-day_of_week(currenttimestamp), currenttimestamp) end)
+	and 
+	case when day_of_week(currenttimestamp)= 7 then date_add('day',-6, currenttimestamp) 
+	else date_add('day',-6-day_of_week(currenttimestamp), currenttimestamp) end
+),
+agg_per_month as (
+	select 
+	*
+	from agg_per_day_base 
+	where cast(date_parse(daydate, '%Y%m%d') as date) between 
+	date_add('day',1-day_of_month(date_add('month',-6,currenttimestamp)),date_add('month',-6,currenttimestamp))
+	and 
+	date_add('day',-day_of_month(currenttimestamp),currenttimestamp)
+),
+agg_case_all_per_month as (
+	select 
+	brandid,
+	'month' as "rangetype",
+	monthdate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	'AllCountryCodes' as  "countrycode",
+	'AllRegionCodes' as "regioncode", 
+	count(distinct userid) as "activeusercount"
+	from agg_per_month 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_countrycode_per_month as (
+	select 
+	brandid,
+	'month' as "rangetype",
+	monthdate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	countrycode,
+	'AllRegionCodes' as "regioncode", 
+	count(distinct userid) as "activeusercount"
+	from agg_per_month 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_countrycode_regioncode_per_month as (
+	select 
+	brandid,
+	'month' as "rangetype",
+	monthdate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	countrycode,
+	regioncode, 
+	count(distinct userid) as "activeusercount"
+	from agg_per_month 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_all_per_day as (
+	select 
+	brandid,
+	'day' as "rangetype",
+	daydate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	'AllCountryCodes' as  "countrycode",
+	'AllRegionCodes' as "regioncode", 
+	count(distinct userid) as "activeusercount"
+	from agg_per_day 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_all_per_week as (
+	select 
+	brandid,
+	'week' as "rangetype",
+	weekdate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	'AllCountryCodes' as  "countrycode",
+	'AllRegionCodes' as "regioncode", 
+	count(distinct userid) as "activeusercount"
+	from agg_per_week 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_countrycode_per_day as (
+	select 
+	brandid,
+	'day' as "rangetype",
+	daydate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	countrycode,
+	'AllRegionCodes' as "regioncode", 
+	count(distinct userid) as "activeusercount"
+	from agg_per_day 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_countrycode_regioncode_per_day as (
+	select 
+	brandid,
+	'day' as "rangetype",
+	daydate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	countrycode,
+	regioncode, 
+	count(distinct userid) as "activeusercount"
+	from agg_per_day 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_countrycode_per_week as (
+	select 
+	brandid,
+	'week' as "rangetype",
+	weekdate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	countrycode,
+	'AllRegionCodes' as "regioncode", 
+	count(distinct userid) as "activeusercount"
+	from agg_per_week 
+	group by 1,2,3,4,5,6,7
+),
+agg_case_countrycode_regioncode_per_week as (
+	select 
+	brandid,
+	'week' as "rangetype",
+	weekdate as "rangedaydate", 
+	'AllProductTypes' as "producttype",
+	'AllSubscriptionids' as "subscriptionid",
+	countrycode,
+	regioncode, 
+	count(distinct userid) as "activeusercount"
+	from agg_per_week 
+	group by 1,2,3,4,5,6,7
+),
+tfinal_day as (
+select * from agg_case_all_per_day
+union
+select * from agg_case_countrycode_per_day
+union
+select * from agg_case_countrycode_regioncode_per_day
+),
+tfinal_week as (
+select * from agg_case_all_per_week
+union
+select * from agg_case_countrycode_per_week
+union
+select * from agg_case_countrycode_regioncode_per_week
+),
+tfinal_month as (
+select * from agg_case_all_per_month
+union
+select * from agg_case_countrycode_per_month
+union
+select * from agg_case_countrycode_regioncode_per_month
+)
+select * from tfinal_day
+union
+select * from tfinal_week
+union
+select * from tfinal_month
